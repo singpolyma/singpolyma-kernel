@@ -1,0 +1,11 @@
+This repository contains code for a very simple microkernel system.
+
+Any platform-specific stuff in this code is for QEMU's "versatilepb" emulation, which emulates this board: <http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0224i/Chdbeibh.html>.
+
+Any CPU-specific stuff is for the ARM1176 processor.  Currently compiling for little-endian, but I would like to change this.
+
+You can run the system with:
+
+qemu-system-arm -M versatilepb -cpu arm1176 -nographic -kernel kernel.elf
+
+Once it is running, you can shut down with ^a-x
