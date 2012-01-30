@@ -1,11 +1,11 @@
 .global activate
 activate:
-	mov ip, sp
+	ldmfd r0!, {ip,lr}
+	msr SPSR, ip
+
 	msr CPSR_c, #0xDF /* System mode */
-	mov sp, ip
+	mov sp, r0
+	pop {r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,fp,ip,lr}
 	msr CPSR_c, #0xD3 /* Supervisor mode */
 
-	mov r0, #0x10
-	msr SPSR, r0
-	ldr lr, =first
 	movs pc, lr

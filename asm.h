@@ -1,1 +1,1 @@
-void activate(void);
+void activate(unsigned int *stack);
