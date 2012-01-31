@@ -10,7 +10,9 @@ void bwputs(char *s) {
 }
 
 void first(void) {
-	bwputs("In user mode\n");
+	bwputs("In user mode 1\n");
+	syscall();
+	bwputs("In user mode 2\n");
 	syscall();
 }
 
@@ -21,7 +23,9 @@ int main(void) {
 	first_stack_start[1] = (unsigned int)&first;
 
 	bwputs("Starting\n");
-	activate(first_stack_start);
+	first_stack_start = activate(first_stack_start);
+	bwputs("Heading back to user mode\n");
+	first_stack_start = activate(first_stack_start);
 	bwputs("Done\n");
 
 	while(1); /* We can't exit, there's nowhere to go */
