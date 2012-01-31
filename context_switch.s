@@ -1,5 +1,15 @@
+.global svc_entry
+svc_entry:
+	pop {r4,r5,r6,r7,r8,r9,r10,fp,ip,lr}
+	mov sp, ip
+	bx lr
+
 .global activate
 activate:
+	/* Save kernel state */
+	mov ip, sp
+	push {r4,r5,r6,r7,r8,r9,r10,fp,ip,lr}
+
 	ldmfd r0!, {ip,lr}
 	msr SPSR, ip
 

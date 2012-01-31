@@ -11,7 +11,7 @@ void bwputs(char *s) {
 
 void first(void) {
 	bwputs("In user mode\n");
-	while(1);
+	syscall();
 }
 
 int main(void) {
@@ -22,6 +22,7 @@ int main(void) {
 
 	bwputs("Starting\n");
 	activate(first_stack_start);
+	bwputs("Done\n");
 
 	while(1); /* We can't exit, there's nowhere to go */
 	return 0;
