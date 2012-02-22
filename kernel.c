@@ -23,14 +23,14 @@ void bwputs(char *s) {
 
 void task(void) {
 	bwputs("In other task\n");
-	while(1) syscall();
+	while(1);
 }
 
 void first(void) {
 	bwputs("In user mode 1\n");
 	if(!fork()) task();
 	bwputs("In user mode 2\n");
-	while(1) syscall();
+	while(1);
 }
 
 #define STACK_SIZE 256 /* Size of task stacks in words */
@@ -48,6 +48,12 @@ int main(void) {
 	unsigned int *tasks[TASK_LIMIT];
 	size_t task_count = 0;
 	size_t current_task = 0;
+
+	*(PIC + VIC_INTENABLE) = PIC_TIMER01;
+
+	*TIMER0 = 1000000;
+	*(TIMER0 + TIMER_CONTROL) = TIMER_EN | TIMER_PERIODIC
+	                            | TIMER_32BIT | TIMER_INTEN;
 
 	tasks[task_count] = init_task(stacks[task_count], &first);
 	task_count++;
@@ -76,6 +82,11 @@ int main(void) {
 					task_count++;
 				}
 				break;
+			case -4: /* Timer 0 or 1 went off */
+				if(*(TIMER0 + TIMER_MIS)) { /* Timer0 went off */
+					*(TIMER0 + TIMER_INTCLR) = 1; /* Clear interrupt */
+					bwputs("tick\n");
+				}
 		}
 
 		current_task++;
