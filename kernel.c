@@ -26,6 +26,10 @@ void task(void) {
 	while(1);
 }
 
+#define TASK_READY      0
+#define TASK_WAIT_READ  1
+#define TASK_WAIT_WRITE 2
+
 void first(void) {
 	bwputs("In user mode 1\n");
 	if(!fork()) task();
@@ -60,6 +64,7 @@ int main(void) {
 
 	while(1) {
 		tasks[current_task] = activate(tasks[current_task]);
+		tasks[current_task][-1] = TASK_READY;
 
 		switch(tasks[current_task][2+7]) {
 			case 0x1: /* fork */
@@ -91,8 +96,9 @@ int main(void) {
 				}
 		}
 
-		current_task++;
-		if(current_task >= task_count) current_task = 0;
+		/* Select next TASK_READY task */
+		while(TASK_READY != tasks[current_task =
+			(current_task+1 >= task_count ? 0 : current_task+1)][-1]);
 	}
 
 	return 0;
