@@ -13,6 +13,18 @@ void *memcpy(void *dest, const void *src, size_t n) {
 	return d;
 }
 
+int strcmp(const char* a, const char* b) {
+	int r = 0;
+	while(!r && *a && *b) r = (*a++) - (*b++);
+	return (*a) - (*b);
+}
+
+size_t strlen(const char *s) {
+	size_t r = 0;
+	while(*s++) r++;
+	return r;
+}
+
 void bwputs(char *s) {
 	while(*s) {
 		while(*(UART0 + UARTFR) & UARTFR_TXFF);
@@ -21,25 +33,119 @@ void bwputs(char *s) {
 	}
 }
 
-void task(void) {
-	bwputs("In other task\n");
-	while(1);
-}
-
 #define STACK_SIZE 1024 /* Size of task stacks in words */
-#define TASK_LIMIT 2   /* Max number of tasks we can handle */
+#define TASK_LIMIT 3   /* Max number of tasks we can handle */
 #define PIPE_BUF   512 /* Size of largest atomic pipe message */
+#define PATH_MAX   255 /* Longest absolute path */
 #define PIPE_LIMIT (TASK_LIMIT*5)
+
+#define PATHSERVER_FD (TASK_LIMIT+3) /* File descriptor of pipe to pathserver */
 
 #define TASK_READY      0
 #define TASK_WAIT_READ  1
 #define TASK_WAIT_WRITE 2
 
+/* This pathserver assumes that all files are FIFOs that were registered
+   with mkfifo.  It also assumes a global tables of FDs shared by all
+   processes.  It would have to get much smarter to be generally useful.
+	The first TASK_LIMIT FDs are reserved for use by their respective tasks.
+	0-2 are reserved FDs and are skipped.
+	The server registers itself at /sys/pathserver
+*/
+void pathserver(void) {
+	char paths[PIPE_LIMIT - TASK_LIMIT - 3][PATH_MAX];
+	int npaths = 0;
+	int i = 0;
+	unsigned int plen = 0;
+	unsigned int replyfd = 0;
+	char path[PATH_MAX];
+
+	memcpy(paths[npaths++], "/sys/pathserver", sizeof("/sys/pathserver"));
+
+	while(1) {
+		read(PATHSERVER_FD, &replyfd, 4);
+		read(PATHSERVER_FD, &plen, 4);
+		read(PATHSERVER_FD, path, plen);
+
+		if(!replyfd) { /* mkfifo */
+			memcpy(paths[npaths++], path, plen);
+		} else { /* open */
+			/* Search for path */
+			for(i = 0; i < npaths; i++) {
+				if(*paths[i] && strcmp(path, paths[i]) == 0) {
+					i += 3; /* 0-2 are reserved */
+					i += TASK_LIMIT; /* FDs reserved for tasks */
+					write(replyfd, &i, 4);
+					i = 0;
+					break;
+				}
+			}
+
+			if(i >= npaths) {
+				i = -1; /* Error: not found */
+				write(replyfd, &i, 4);
+			}
+		}
+	}
+}
+
+int mkfifo(const char *pathname, int mode) {
+	size_t plen = strlen(pathname)+1;
+	char buf[4+4+PATH_MAX];
+	(void)mode;
+
+	*((unsigned int*)buf) = 0;
+	*((unsigned int*)(buf+4)) = plen;
+	memcpy(buf+4+4, pathname, plen);
+	write(PATHSERVER_FD, buf, 4+4+plen);
+
+	/* XXX: no error handling */
+	return 0;
+}
+
+int open(const char *pathname, int flags) {
+	unsigned int replyfd = getpid() + 3;
+	size_t plen = strlen(pathname)+1;
+	unsigned int fd = -1;
+	char buf[4+4+PATH_MAX];
+	(void)flags;
+
+	*((unsigned int*)buf) = replyfd;
+	*((unsigned int*)(buf+4)) = plen;
+	memcpy(buf+4+4, pathname, plen);
+	write(PATHSERVER_FD, buf, 4+4+plen);
+	read(replyfd, &fd, 4);
+
+	return fd;
+}
+
+void otherguy() {
+	int fd;
+	unsigned int len;
+	char buf[20];
+	mkfifo("/proc/0", 0);
+	fd = open("/proc/0", 0);
+	while(1) {
+		read(fd, &len, 4);
+		read(fd, buf, len);
+		bwputs(buf);
+	}
+}
+
 void first(void) {
-	bwputs("In user mode 1\n");
-	if(!fork()) task();
-	bwputs("In user mode 2\n");
-	while(1);
+	int fd;
+
+	if(!fork()) pathserver();
+	if(!fork()) otherguy();
+
+	fd = open("/proc/0", 0);
+	while(1) {
+		int len = sizeof("Ping\n");
+		char buf[sizeof("Ping\n")+4];
+		memcpy(buf, &len, 4);
+		memcpy(buf+4, "Ping\n", len);
+		write(fd, buf, len+4);
+	}
 }
 
 struct pipe_ringbuffer {
