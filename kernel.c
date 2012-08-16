@@ -26,6 +26,11 @@ void task(void) {
 	while(1);
 }
 
+#define STACK_SIZE 1024 /* Size of task stacks in words */
+#define TASK_LIMIT 2   /* Max number of tasks we can handle */
+#define PIPE_BUF   512 /* Size of largest atomic pipe message */
+#define PIPE_LIMIT (TASK_LIMIT*5)
+
 #define TASK_READY      0
 #define TASK_WAIT_READ  1
 #define TASK_WAIT_WRITE 2
@@ -37,8 +42,30 @@ void first(void) {
 	while(1);
 }
 
-#define STACK_SIZE 256 /* Size of task stacks in words */
-#define TASK_LIMIT 2   /* Max number of tasks we can handle */
+struct pipe_ringbuffer {
+	int start;
+	int end;
+	char data[PIPE_BUF];
+};
+
+#define RB_PUSH(rb, size, v) do { \
+		(rb).data[(rb).end] = (v); \
+		(rb).end++; \
+		if((rb).end > size) (rb).end = 0; \
+	} while(0)
+
+#define RB_POP(rb, size, v) do { \
+		(v) = (rb).data[(rb).start]; \
+		(rb).start++; \
+		if((rb).start > size) (rb).start = 0; \
+	} while(0)
+
+#define RB_LEN(rb, size) (((rb).end - (rb).start) + \
+	(((rb).end < (rb).start) ? size : 0))
+
+#define PIPE_PUSH(pipe, v) RB_PUSH((pipe), PIPE_BUF, (v))
+#define PIPE_POP(pipe, v)  RB_POP((pipe), PIPE_BUF, (v))
+#define PIPE_LEN(pipe)     (RB_LEN((pipe), PIPE_BUF))
 
 unsigned int *init_task(unsigned int *stack, void (*start)(void)) {
 	stack += STACK_SIZE - 16; /* End of stack, minus what we're about to push */
@@ -50,8 +77,10 @@ unsigned int *init_task(unsigned int *stack, void (*start)(void)) {
 int main(void) {
 	unsigned int stacks[TASK_LIMIT][STACK_SIZE];
 	unsigned int *tasks[TASK_LIMIT];
+	struct pipe_ringbuffer pipes[PIPE_LIMIT];
 	size_t task_count = 0;
 	size_t current_task = 0;
+	size_t i;
 
 	*(PIC + VIC_INTENABLE) = PIC_TIMER01;
 
@@ -61,6 +90,11 @@ int main(void) {
 
 	tasks[task_count] = init_task(stacks[task_count], &first);
 	task_count++;
+
+	/* Initialize all pipes */
+	for(i = 0; i < PIPE_LIMIT; i++) {
+		pipes[i].start = pipes[i].end = 0;
+	}
 
 	while(1) {
 		tasks[current_task] = activate(tasks[current_task]);
