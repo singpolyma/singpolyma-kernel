@@ -74,6 +74,70 @@ unsigned int *init_task(unsigned int *stack, void (*start)(void)) {
 	return stack;
 }
 
+void _read(unsigned int *task, unsigned int **tasks, size_t task_count, struct pipe_ringbuffer *pipes);
+void _write(unsigned int *task, unsigned int **tasks, size_t task_count, struct pipe_ringbuffer *pipes);
+
+void _read(unsigned int *task, unsigned int **tasks, size_t task_count, struct pipe_ringbuffer *pipes) {
+	task[-1] = TASK_READY;
+	/* If the fd is invalid, or trying to read too much  */
+	if(task[2+0] > PIPE_LIMIT || task[2+2] > PIPE_BUF) {
+		task[2+0] = -1;
+	} else {
+		struct pipe_ringbuffer *pipe = &pipes[task[2+0]];
+		if((size_t)PIPE_LEN(*pipe) < task[2+2]) {
+			/* Trying to read more than there is: block */
+			task[-1] = TASK_WAIT_READ;
+		} else {
+			size_t i;
+			char *buf = (char*)task[2+1];
+			/* Copy data into buf */
+			for(i = 0; i < task[2+2]; i++) {
+				PIPE_POP(*pipe,buf[i]);
+			}
+
+			/* Unblock any waiting writes
+				XXX: nondeterministic unblock order
+			*/
+			for(i = 0; i < task_count; i++) {
+				if(tasks[i][-1] == TASK_WAIT_WRITE) {
+					_write(tasks[i], tasks, task_count, pipes);
+				}
+			}
+		}
+	}
+}
+
+void _write(unsigned int *task, unsigned int **tasks, size_t task_count, struct pipe_ringbuffer *pipes) {
+	/* If the fd is invalid or the write would be non-atomic */
+	if(task[2+0] > PIPE_LIMIT || task[2+2] > PIPE_BUF) {
+		task[2+0] = -1;
+	} else {
+		struct pipe_ringbuffer *pipe = &pipes[task[2+0]];
+
+		if((size_t)PIPE_BUF - PIPE_LEN(*pipe) <
+			task[2+2]) {
+			/* Trying to write more than we have space for: block */
+			task[-1] = TASK_WAIT_WRITE;
+		} else {
+			size_t i;
+			const char *buf = (const char*)task[2+1];
+			/* Copy data into pipe */
+			for(i = 0; i < task[2+2]; i++) {
+				PIPE_PUSH(*pipe,buf[i]);
+			}
+
+			/* Unblock any waiting reads
+				XXX: nondeterministic unblock order
+			*/
+			for(i = 0; i < task_count; i++) {
+				if(tasks[i][-1] == TASK_WAIT_READ) {
+					_read(tasks[i], tasks, task_count, pipes);
+				}
+			}
+		}
+	}
+}
+
 int main(void) {
 	unsigned int stacks[TASK_LIMIT][STACK_SIZE];
 	unsigned int *tasks[TASK_LIMIT];
@@ -123,6 +187,12 @@ int main(void) {
 				break;
 			case 0x2: /* getpid */
 				tasks[current_task][2+0] = current_task;
+				break;
+			case 0x3: /* write */
+				_write(tasks[current_task], tasks, task_count, pipes);
+				break;
+			case 0x4: /* read */
+				_read(tasks[current_task], tasks, task_count, pipes);
 				break;
 			case -4: /* Timer 0 or 1 went off */
 				if(*(TIMER0 + TIMER_MIS)) { /* Timer0 went off */
