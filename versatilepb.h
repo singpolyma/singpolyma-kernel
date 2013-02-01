@@ -19,4 +19,5 @@
 #define PIC           ((volatile unsigned int*)0x10140000)
 #define PIC_TIMER01   0x10
 /* http://infocenter.arm.com/help/topic/com.arm.doc.ddi0181e/I1006461.html */
-#define VIC_INTENABLE 0x4 /* 0x10 bytes */
+#define VIC_INTENABLE  0x4 /* 0x10 bytes */
+#define VIC_INTENCLEAR 0x5 /* 0x14 bytes */

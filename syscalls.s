@@ -22,3 +22,9 @@ read:
 	mov r7, #0x4
 	svc 0
 	bx lr
+.global interrupt_wait
+interrupt_wait:
+	push {r7}
+	mov r7, #0x5
+	svc 0
+	bx lr
