@@ -161,14 +161,24 @@ void serialin(volatile unsigned int* uart, unsigned int intr) {
 	}
 }
 
+void echo(void) {
+	int fdout, fdin;
+	char c;
+	fdout = open("/dev/tty0/out", 0);
+	fdin = open("/dev/tty0/in", 0);
+
+	while(1) {
+		read(fdin, &c, 1);
+		write(fdout, &c, 1);
+	}
+}
+
 void first(void) {
 	if(!fork()) pathserver();
 	if(!fork()) serialout(UART0, PIC_UART0);
 	if(!fork()) serialin(UART0, PIC_UART0);
+	if(!fork()) echo();
 
-	fd = open("/dev/tty0/out", 0);
-	write(fd, "woo\n", sizeof("woo\n"));
-	write(fd, "thar\n", sizeof("thar\n"));
 	while(1);
 }
 
