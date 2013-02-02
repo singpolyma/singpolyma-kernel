@@ -3,8 +3,13 @@
 /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0183g/I18381.html */
 #define UARTFR        0x06 /* 0x18 bytes */
 #define UARTIMSC      0x0E /* 0x38 bytes */
+#define UARTICR       0x11 /* 0x44 bytes */
+#define UARTFR_RXFE   0x10
 #define UARTFR_TXFF   0x20
+#define UARTIMSC_RXIM 0x10
 #define UARTIMSC_TXIM 0x20
+#define UARTICR_RXIC  0x10
+#define UARTICR_TXIC  0x20
 
 /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0271d/index.html */
 #define TIMER0         ((volatile unsigned int*)0x101E2000)
