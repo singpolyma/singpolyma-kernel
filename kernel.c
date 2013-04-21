@@ -1,29 +1,9 @@
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "versatilepb.h"
 #include "asm.h"
-
-void *memcpy(void *dest, const void *src, size_t n) {
-	char *d = dest;
-	const char *s = src;
-	size_t i;
-	for(i = 0; i < n; i++) {
-		d[i] = s[i];
-	}
-	return d;
-}
-
-int strcmp(const char* a, const char* b) {
-	int r = 0;
-	while(!r && *a && *b) r = (*a++) - (*b++);
-	return (*a) - (*b);
-}
-
-size_t strlen(const char *s) {
-	size_t r = 0;
-	while(*s++) r++;
-	return r;
-}
 
 void bwputs(char *s) {
 	while(*s) {
