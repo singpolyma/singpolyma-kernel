@@ -190,14 +190,12 @@ struct pipe_ringbuffer {
 
 #define RB_PUSH(rb, size, v) do { \
 		(rb).data[(rb).end] = (v); \
-		(rb).end++; \
-		if((rb).end > size) (rb).end = 0; \
+		(rb).end = ((rb).end + 1) % (size); \
 	} while(0)
 
 #define RB_POP(rb, size, v) do { \
 		(v) = (rb).data[(rb).start]; \
-		(rb).start++; \
-		if((rb).start > size) (rb).start = 0; \
+		(rb).start = ((rb).start + 1) % (size); \
 	} while(0)
 
 #define RB_LEN(rb, size) (((rb).end - (rb).start) + \
@@ -365,8 +363,7 @@ int main(void) {
 		}
 
 		/* Select next TASK_READY task */
-		while(TASK_READY != tasks[current_task =
-			(current_task+1 >= task_count ? 0 : current_task+1)][-1]);
+		while(TASK_READY != tasks[current_task = (current_task + 1) % task_count][-1]);
 	}
 
 	return 0;
