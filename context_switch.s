@@ -43,6 +43,7 @@ svc_entry:
 	mov sp, ip
 	bx lr
 
+.type activate, %function
 .global activate
 activate:
 	/* Save kernel state */
